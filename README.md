@@ -19,7 +19,7 @@ and multiple load and store execution. There are three machine-code instruction 
 type) and a total of 14 instructions.
 
 ## Instruction Set Architecture
-Information for the 14 instructions supported by the IITB-CPU and their encoding can be found in the [Problem Statement](https://github.com/SohamInamdar142857/EE224_16_bit_CPU/blob/main/EE224-IITB-CPU-Project.pdf).
+Information for the 14 instructions supported by the IITB-CPU and their encoding can be found in the [Problem Statement](https://github.com/brycisliova/16-Bit-IITB-CPU/blob/main/EE-224-Project-1-CPU-IITB.pdf).
 
 ## Simulation
 Simulation and testing of IIT-B CPU was performed and it was observed that the CPU efficiently uses all the components to process the given instructions. The states were made using the state diagram. The states were executed according to the state diagram.
