@@ -1,0 +1,172 @@
+library ieee;
+use ieee.std_logic_1164.all;
+--use IEEE.STD_LOGIC_ArITH.ALL;
+--use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMErIC_STD.ALL;
+
+entity CPU is
+	port(Clk, reset: in std_logic;
+			pc, Ir: out std_logic_vector(15 downto 0));
+			--state_final: out integer;
+			--rf_final0, rf_final1, rf_final2, rf_final3, rf_final4, rf_final5, rf_final6: out std_logic_vector(15 downto 0));
+end entity;
+
+architecture struct of CPU is
+	component register_16 is
+		port(clk, rw: in std_logic; 
+			data_in: in std_logic_vector(15 downto 0);
+			data_out: out std_logic_vector(15 downto 0));
+	end component;
+	
+	component reg_file is
+		port(rf_A1,rf_A2,rf_A3: in std_logic_vector(2 downto 0);
+				rf_D3, pc: in std_logic_vector(15 downto 0);
+				rw, Clk: in std_logic;
+				rf_D1,rf_D2: out std_logic_vector(15 downto 0);
+				rf_all0, rf_all1, rf_all2, rf_all3, rf_all4, rf_all5, rf_all6: out std_logic_vector(15 downto 0));
+	end component;
+	
+	component ALU is
+		port (A: in std_logic_vector(15 downto 0);
+				B: in std_logic_vector(15 downto 0);
+				state: in std_logic_vector(4 downto 0);
+				C: out std_logic_vector(15 downto 0);
+				Z: out std_logic
+				);
+	end component;
+	
+	component FSM is
+		port(Clk, reset: in std_logic;
+			opcode: in std_logic_vector(3 downto 0);
+			opcode_mem: in std_logic_vector(3 downto 0);
+			state: out integer);
+	end component;
+	
+	component data_path is
+    port(state : in integer;alu_z : in std_logic; mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,mem9,mem10,mem11,mem12,pc_w,memw,ir_w,rf_w,t1_w,t2_w,t3_w : out std_logic);
+	end component;
+	
+	component Memory1 is 
+	port (add,data_in: in std_logic_vector(15 downto 0); 
+			clock,rw: in std_logic;
+			data_out: out std_logic_vector(15 downto 0));
+	end component;
+
+---------------------------------------------------------------------------------------
+	component mux8_1_16 is 
+		port(A,B,C,D,E,F,G,H: in std_logic_vector(15 downto 0); sel0,sel1,sel2: in std_logic; Y: out std_logic_vector(15 downto 0));
+	end component;
+	
+	component mux8_1_3 is
+		port(A,B,C,D,E,F,G,H: in std_logic_vector(2 downto 0); sel0,sel1,sel2: in std_logic; Y: out std_logic_vector(2 downto 0));
+	end component;
+	
+	component mux8_to_1 is 
+		port(A, B, C, D, E, F, G, H,sel0, sel1, sel2: in std_logic;Y: out std_logic);
+	end component;
+	
+	component mux4_1_16 is 
+		port(A,B,C,D: in std_logic_vector(15 downto 0); sel_0,sel_1: in std_logic; Y: out std_logic_vector(15 downto 0));
+	end component;
+	
+	component mux4_1_3 is 
+		port(A,B,C,D: in std_logic_vector(2 downto 0); sel_0,sel_1: in std_logic; Y: out std_logic_vector(2 downto 0));
+	end component;
+	
+	component mux4_1 is 
+		port(A,B,C,D,sel0,sel1: in std_logic; Y: out std_logic);
+	end component;
+	
+	component mux2_1_16 is 
+		port(A,B: in std_logic_vector(15 downto 0); sel: in std_logic; Y: out std_logic_vector(15 downto 0));
+	end component;
+	
+	component mux2_1_3 is 
+		port(A,B: in std_logic_vector(2 downto 0); sel: in std_logic; Y: out std_logic_vector(2 downto 0));
+	end component;
+	
+	component mux2_to_1 is 
+		port(A,B,sel: in std_logic; Y: out std_logic);
+	end component;
+---------------------------------------------------------------------------------------
+
+	component concatenate1 is
+		port (A: in std_logic_vector(7 downto 0);
+				C: out std_logic_vector(15 downto 0));
+	end component;
+	
+	component concatenate is
+		port (A: in std_logic_vector(7 downto 0);
+				C: out std_logic_vector(15 downto 0));
+	end component;
+	
+	component sign_extender_9to16 is
+		port (A: in std_logic_vector(8 downto 0);
+				C: out std_logic_vector(15 downto 0));
+	end component;
+	
+	component sign_extender_6to16 is
+		port (A: in std_logic_vector(5 downto 0);
+				C: out std_logic_vector(15 downto 0));
+	end component;
+	
+	component Pointer_Counter is
+   port(clock, rw: in std_logic; 
+			data_in: in std_logic_vector(15 downto 0);
+			data_out: out std_logic_vector(15 downto 0));
+   end component;
+---------------------------------------------------------------------------------------
+	signal Ir_out, pc_out, mem_out, rf_D1, rf_D2 : std_logic_vector(15 downto 0);
+	signal M1_out, M2_out,M56_out, M78_out, M910_out, M11_out, M12_out: std_logic_vector(15 downto 0);
+	signal M34_out: std_logic_vector(2 downto 0);
+	signal ALU_C, T1_out, T2_out, T3_out, sign_extender9_out, sign_extender6_out, concat1_out, concat2_out: std_logic_vector(15 downto 0);
+	signal pc_W, Ir_W, T1_W, T2_W, T3_W, rf_W, MW: std_logic;
+	signal M1, M2, M3, M4, M5, M6, M7, M8, M9, M10, M11, M12, ALU_Z: std_logic;
+	signal state: integer;
+	signal state_5: std_logic_vector(4 downto 0);
+	signal rf_all0, rf_all1, rf_all2, rf_all3, rf_all4, rf_all5, rf_all6: std_logic_vector(15 downto 0);
+	begin
+	
+	FSM_instance: FSM port map (clk,reset,Ir_out(15 downto 12), mem_out(15 downto 12), state);
+	--Datapath_instance: 
+	Datapath_instance: data_path port map(state, ALU_Z, M1, M2, M3, M4, M5, M6, M7, M8, M9, M10, M11, M12, pc_W, MW, Ir_W, rf_W, T1_W, T2_W, T3_W); 
+	-- Naming convention: Mux x ==> inputs Mx_0,Mx_1,etc; output Mx_out; control signal Mx
+		
+	Program_counter: Pointer_Counter port map (clk, pc_W, M1_out, pc_out);
+	Memory_inst: Memory1 port map (M2_out, T1_out, Clk, MW, mem_out);
+	Ir_1: Pointer_Counter port map (clk, Ir_W, mem_out, Ir_out);
+	register_file: reg_file port map (Ir_out(11 downto 9), Ir_out(8 downto 6), M34_out, M56_out, pc_out, rf_W, Clk, rf_D1, rf_D2, rf_all0, rf_all1, rf_all2, rf_all3, rf_all4, rf_all5, rf_all6);
+	state_5 <= std_logic_vector(to_unsigned(state, 5));
+	ALU_inst: ALU port map (M78_out, M910_out, state_5, ALU_C, ALU_Z);
+	
+	T1: Pointer_Counter port map (clk, T1_W, rf_D1, T1_out);
+	T2: Pointer_Counter port map (clk, T2_W, rf_D2, T2_out);
+	T3: Pointer_Counter port map (clk, T3_W, M11_out, T3_out);
+	
+	Sign_extend1: sign_extender_9to16 port map (Ir_out(8 downto 0), sign_extender9_out);
+	Sign_extend2: sign_extender_6to16 port map (Ir_out(5 downto 0), sign_extender6_out);
+	Concat_msb: concatenate1 port map (Ir_out(7 downto 0), concat1_out);
+	Concat_lsb: concatenate port map (Ir_out(7 downto 0), concat2_out);
+	
+	M1_inst: mux2_1_16 port map (M12_out, rf_D2, M1, M1_out);
+	M2_inst: mux2_1_16 port map (pc_out, T3_out, M2, M2_out);
+	M34_inst: mux4_1_3 port map (Ir_out(11 downto 9), Ir_out(5 downto 3), Ir_out(8 downto 6), "000", M4, M3, M34_out);
+	M56_inst: mux4_1_16 port map (T3_out, concat1_out, concat2_out, pc_out, M6, M5, M56_out);
+	M78_inst: mux4_1_16 port map (pc_out, T1_out, T1_out, T2_out, M8, M7, M78_out);
+	M910_inst: mux4_1_16 port map ("0000000000000001", T2_out, sign_extender6_out, sign_extender9_out, M10, M9, M910_out);
+	M11_inst: mux2_1_16 port map (ALU_C, mem_out, M11, M11_out);
+	M12_inst: mux2_1_16 port map (pc_out, ALU_C, M12, M12_out);
+	
+	Ir<= Ir_out;
+	pc<= pc_out;
+	--state_final<=state;
+	
+	--rf_final0<= rf_all0;
+	--rf_final1<= rf_all1;
+	--rf_final2<= rf_all2;
+	--rf_final3<= rf_all3;
+	--rf_final4<= rf_all4;
+	--rf_final5<= rf_all5;
+	--rf_final6<= rf_all6;
+
+end struct;
